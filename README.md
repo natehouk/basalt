@@ -67,6 +67,13 @@ xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/*/Basalt*
 - **Undo / redo** for every edit, including preset loads. Use the header buttons, or Cmd/Ctrl-Z and Cmd/Ctrl-Shift-Z.
 - **Input gain, output gain and mix** controls.
 
+**Help built in**
+- **Hover tips.** Rest the pointer on any control, handle or header button for a moment to see what it does, its current value and any MIDI CC assigned to it.
+- **HELP window.** Short pages on the filters, the display, playing live, MIDI Learn, presets and shortcuts. It has a switch for the hover tips and a link to the full manual.
+- **[Full manual](docs/MANUAL.md).** It's also included in every release zip as `Basalt-Manual.html`.
+
+![Help window](screenshot-help.png)
+
 **Workflow** (shared with the rest of the family)
 - **MIDI Learn:**
   1. Click **LEARN**.
@@ -94,6 +101,7 @@ xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/*/Basalt*
 | Interactive MIDI Learn | ✓ |
 | Smoothed parameter changes, sample-accurate automation | ✓ |
 | Undo / redo, preset browser | ✓ plus saving your own presets |
+| Interactive help hints and a help file | ✓ hover tips, in-plugin help pages, full manual |
 | CPU-friendly | ✓ about 1% of one core with both 48 dB filters running |
 | Pro Tools (RTAS/AAX) | Not supported (needs Avid's SDK and signing) |
 
@@ -133,6 +141,8 @@ Release checks:
 | `plugins/Basalt/UserPresets.hpp` | User preset files |
 | `plugins/Basalt/BasaltPlugin.cpp` | Plugin wrapper: parameters, programs, MIDI Learn |
 | `plugins/Basalt/BasaltUI.cpp` | Custom vector interface (NanoVG) |
+| `plugins/Basalt/Help.hpp` | Hover tip text and in-plugin help pages |
+| `docs/MANUAL.md` | User manual (`Basalt-Manual.html` is generated from it with pandoc) |
 
 New parameters are only ever appended, so saved sessions and automation keep working across versions.
 

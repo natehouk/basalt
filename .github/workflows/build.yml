@@ -31,6 +31,7 @@ jobs:
           mkdir -p dist/macos-universal
           cp -R bin/*.vst3 bin/*.component bin/*.clap dist/macos-universal/ 2>/dev/null || true
           [ -e bin/Basalt.vst ] && cp -R bin/Basalt.vst dist/macos-universal/
+          cp docs/Basalt-Manual.html dist/macos-universal/
           cd dist && ditto -c -k --keepParent macos-universal Basalt-macos-universal.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -49,7 +50,7 @@ jobs:
       - run: git clone --depth 1 --recursive https://github.com/DISTRHO/DPF.git dpf
       - run: make -C plugins/Basalt -j3 WINDOWS=true CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
       - run: |
-          mkdir -p dist/windows-x64 && cp -R bin/Basalt.vst3 bin/Basalt.clap bin/Basalt-vst.dll dist/windows-x64/
+          mkdir -p dist/windows-x64 && cp -R bin/Basalt.vst3 bin/Basalt.clap bin/Basalt-vst.dll docs/Basalt-Manual.html dist/windows-x64/
           cd dist && zip -r Basalt-windows-x64.zip windows-x64
       - uses: actions/upload-artifact@v4
         with:
@@ -68,7 +69,7 @@ jobs:
       - run: git clone --depth 1 --recursive https://github.com/DISTRHO/DPF.git dpf
       - run: make -C plugins/Basalt -j3
       - run: |
-          mkdir -p dist/linux-x64 && cp -R bin/Basalt.vst3 bin/Basalt.clap bin/Basalt-vst.so dist/linux-x64/
+          mkdir -p dist/linux-x64 && cp -R bin/Basalt.vst3 bin/Basalt.clap bin/Basalt-vst.so docs/Basalt-Manual.html dist/linux-x64/
           cd dist && zip -r Basalt-linux-x64.zip linux-x64
       - uses: actions/upload-artifact@v4
         with:

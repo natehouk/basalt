@@ -4,6 +4,8 @@
 #include "Presets.hpp"
 #include "UserPresets.hpp"
 #include "ResizeHandle.hpp"
+#include "Help.hpp"
+#include <chrono>
 #include <cctype>
 #include <cmath>
 #include <complex>
@@ -13,7 +15,24 @@
 #include <string>
 #include <vector>
 
+#if defined(_WIN32)
+extern "C" __declspec(dllimport) void* __stdcall ShellExecuteA(void*, const char*, const char*, const char*, const char*, int);
+#endif
+
 START_NAMESPACE_DISTRHO
+
+// open a web page in the default browser (the full manual)
+static void openURL(const char* url) {
+#if defined(_WIN32)
+    ShellExecuteA(nullptr, "open", url, nullptr, nullptr, 1);
+#elif defined(__APPLE__)
+    const std::string c = std::string("open '") + url + "' &"; if (std::system(c.c_str())) {}
+#else
+    const std::string c = std::string("xdg-open '") + url + "' >/dev/null 2>&1 &"; if (std::system(c.c_str())) {}
+#endif
+}
+static bool gTipsOn = true;          // hover tips on/off, kept for the session
+static double nowSec() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
 using namespace basalt;
 using DGL_NAMESPACE::ResizeHandle;
@@ -82,7 +101,7 @@ static const char* const* segLabels(uint32_t p, int& n) {
 }
 
 static constexpr float PS_X = 336.f, PS_Y = 20.f, PS_W = 250.f, PS_H = 28.f, PS_ARROW = 30.f;
-static constexpr float UNDO_X = 600.f, REDO_X = 658.f, UR_W = 54.f, LEARN_X = 724.f, LEARN_W = 72.f, MIDI_X = 800.f, MIDI_W = 56.f;
+static constexpr float UNDO_X = 594.f, REDO_X = 648.f, UR_W = 50.f, LEARN_X = 702.f, LEARN_W = 68.f, MIDI_X = 774.f, MIDI_W = 52.f, HELP_X = 834.f, HELP_W = 44.f;
 static constexpr float PM_COLW = 146.f, PM_ROW = 23.f, PM_HEAD = 22.f, PM_PAD = 8.f;
 
 // filter magnitude for drawing (linear prototype of the engine's cascade)
@@ -228,12 +247,13 @@ protected:
         fontSize(22); textLetterSpacing(9); fillColor(C_TEXT); textAlign(ALIGN_LEFT | ALIGN_MIDDLE); text(52, 34, "BASALT", nullptr);
         fontSize(10); textLetterSpacing(2.5f); fillColor(C_DIM); text(206, 35, "DUAL FILTER", nullptr);
         fontSize(8); textLetterSpacing(2.f); textAlign(ALIGN_RIGHT | ALIGN_MIDDLE); fillColor(C_FAINT);
-        text(W - 20, 29, "EPSILON AUDIO", nullptr); text(W - 20, 41, "1.0", nullptr);
+        text(W - 20, 29, "EPSILON AUDIO", nullptr); text(W - 20, 41, "1.1", nullptr);
         drawPresetBar();
         drawHeaderButton(UNDO_X, UR_W, "UNDO", false, hoverHeader == 3, undoStack.empty());
         drawHeaderButton(REDO_X, UR_W, "REDO", false, hoverHeader == 4, redoStack.empty());
         drawHeaderButton(LEARN_X, LEARN_W, learnMode ? "LEARNING" : "LEARN", learnMode, hoverHeader == 1, false);
         drawHeaderButton(MIDI_X, MIDI_W, "MIDI", val[kMidiOn] > 0.5f, hoverHeader == 2, false);
+        drawHeaderButton(HELP_X, HELP_W, "HELP", helpOpen, hoverHeader == 5, false);
 
         drawDisplay();
         for (const Panel& p : kPanels) drawPanel(p);
@@ -245,6 +265,8 @@ protected:
         drawStatus();
         if (menuOpen) drawPresetMenu();
         if (saving) drawSaveBox();
+        if (helpOpen) drawHelp();
+        else if (tipShown && gTipsOn) drawTooltip();
         restore();
     }
 
@@ -555,6 +577,7 @@ protected:
         if (x >= MIDI_X && x <= MIDI_X + MIDI_W) return 2;
         if (x >= UNDO_X && x <= UNDO_X + UR_W) return 3;
         if (x >= REDO_X && x <= REDO_X + UR_W) return 4;
+        if (x >= HELP_X && x <= HELP_X + HELP_W) return 5;
         return 0;
     }
     int presetBarHit(float x, float y) const {
@@ -586,6 +609,7 @@ protected:
             const bool cmd = (ev.mod & (kModifierControl | kModifierSuper)) != 0;
             if (cmd && (ev.key == 'z' || ev.key == 'Z')) { if (ev.mod & kModifierShift) redo(); else undo(); return true; }
             if (cmd && (ev.key == 'y' || ev.key == 'Y')) { redo(); return true; }
+            if (ev.key == kKeyEscape && helpOpen) { helpOpen = false; repaint(); return true; }
             if (ev.key == kKeyEscape && learnMode) { setLearn(false); return true; }
             return false;
         }
@@ -605,7 +629,8 @@ protected:
     bool onMouse(const MouseEvent& ev) override {
         const float s = uiScale(), x = ev.pos.getX() / s, y = ev.pos.getY() / s;
         if (saving) return true;
-        if (ev.press) statusFlash = 0;
+        if (ev.press) { statusFlash = 0; tipShown = false; tipSuppressed = tipKey; }
+        if (helpOpen) { if (ev.press && ev.button == 1) helpClick(x, y); return true; }
         if (ev.button == 3 && ev.press) {
             if (menuOpen) { const int m = menuHit(x, y); if (m >= 0 && menuItem(m).kind == 1) { pendingDelete = menuItem(m).idx; repaint(); } return true; }
             if (learnMode) { const int i = hit(x, y); if (i >= 0) { const uint32_t p = controls()[i].param; char b[24]; snprintf(b, sizeof b, "unmap:%u", p); setState("cmd", b); paramCC[p] = -1; repaint(); } return true; }
@@ -641,6 +666,7 @@ protected:
         if (hh == 2) { beginGesture(); commit(kMidiOn, val[kMidiOn] > 0.5f ? 0.f : 1.f); endGesture(); return true; }
         if (hh == 3) { undo(); return true; }
         if (hh == 4) { redo(); return true; }
+        if (hh == 5) { helpOpen = true; repaint(); return true; }
         const int pb = presetBarHit(x, y);
         if (pb == 0) { step(-1); return true; }
         if (pb == 2) { step(1); return true; }
@@ -691,6 +717,7 @@ protected:
     bool onMotion(const MotionEvent& ev) override {
         const float s = uiScale(), x = ev.pos.getX() / s, y = ev.pos.getY() / s;
         if (saving) return true;
+        if (helpOpen) { const int h = helpHit(x, y); if (h != helpHover) { helpHover = h; repaint(); } return true; }
         if (active >= 0) {
             const Ctl& c = controls()[active]; const uint32_t p = c.param;
             if (circular) { setLinked(p, fromNorm(p, angleNorm(c, x, y))); return true; }
@@ -716,6 +743,10 @@ protected:
         const bool hc = clearHit(x, y); if (hc != hoverClear) { hoverClear = hc; repaint(); }
         const int h = hit(x, y); if (h != hover) { hover = h; repaint(); }
         const int hd = h >= 0 || learnMode ? -1 : handleHit(x, y); if (hd != hoverHandle) { hoverHandle = hd; repaint(); }
+        // hover tips: shown after the pointer rests on one thing for a moment
+        const int key = h >= 0 ? h : (hh > 0 ? 1000 + hh : (pb >= 0 ? 2000 + pb : (hd >= 0 ? 3000 + hd : -1)));
+        tipX = x; tipY = y;
+        if (key != tipKey) { const bool was = tipShown; tipKey = key; tipSince = nowSec(); tipShown = false; if (key != tipSuppressed) tipSuppressed = -2; if (was) repaint(); }
         return false;
     }
 
@@ -729,6 +760,111 @@ protected:
         const float st = (ev.mod & kModifierShift) ? 0.004f : 0.02f;
         beginGesture(); commitLinked(p, fromNorm(p, toNorm(p, val[p]) + (ev.delta.getY() > 0 ? st : -st))); endGesture();
         return true;
+    }
+
+    void uiIdle() override {
+        if (gTipsOn && !tipShown && tipKey >= 0 && tipKey != tipSuppressed && active < 0 && dragHandle < 0 && !menuOpen && !saving && !helpOpen && editing < 0
+            && nowSec() - tipSince > 0.6) { tipShown = true; repaint(); }
+    }
+
+    // ---- hover tips ---------------------------------------------------------------
+    bool tipContent(std::string& title, std::string& value, std::string& body) const {
+        if (tipKey < 0) return false;
+        if (tipKey < 1000) {
+            const uint32_t p = controls()[tipKey].param; char b[40]; fmt(p, b, sizeof b);
+            title = paramDef(p).name; value = b; body = paramTip(p);
+            if (controls()[tipKey].type == Knob) body += "\n\nDrag the middle up/down or grab the rim and turn. Double-click to type a value, Cmd/Ctrl-click to reset.";
+            if (paramCC[p] >= 0) { char cc[32]; snprintf(cc, sizeof cc, "   ·   CC%d", paramCC[p]); value += cc; }
+            return true;
+        }
+        int t = -1;
+        if (tipKey >= 3000) t = kTipHandle1 + (tipKey - 3000);
+        else if (tipKey >= 2000) t = kTipPrev + (tipKey - 2000);
+        else { const int hh = tipKey - 1000; t = hh == 1 ? kTipLearn : hh == 2 ? kTipMidi : hh == 3 ? kTipUndo : hh == 4 ? kTipRedo : kTipHelp; }
+        title = targetTitle(t); value.clear(); body = targetTip(t);
+        if (t == kTipUndo) { char b[32]; snprintf(b, sizeof b, "%d step%s", (int)undoStack.size(), undoStack.size() == 1 ? "" : "s"); value = b; }
+        if (t == kTipRedo) { char b[32]; snprintf(b, sizeof b, "%d step%s", (int)redoStack.size(), redoStack.size() == 1 ? "" : "s"); value = b; }
+        return true;
+    }
+    void drawTooltip() {
+        std::string title, value, body;
+        if (!tipContent(title, value, body)) return;
+        const float w = 300, pad = 12;
+        fontSize(11); textLetterSpacing(0.2f); textLineHeight(1.3f);
+        float bb[4]; textBoxBounds(0, 0, w - 2 * pad, body.c_str(), nullptr, bb);
+        const float h = pad + 16 + 8 + (bb[3] - bb[1]) + pad;
+        float x = tipX + 16, y = tipY + 20;
+        if (x + w > W - 8) x = tipX - w - 12;
+        if (y + h > H - 8) y = tipY - h - 12;
+        x = clampf(x, 8, W - w - 8); y = clampf(y, 8, H - h - 8);
+        beginPath(); rect(x - 10, y - 4, w + 20, h + 18); fillPaint(boxGradient(x, y + 3, w, h, 6, 14, Color(0, 0, 0, 0.55f), Color(0, 0, 0, 0.f))); fill();
+        beginPath(); roundedRect(x, y, w, h, 6); fillColor(Color(0x1d, 0x20, 0x24)); fill(); strokeColor(C_LINE); strokeWidth(1); stroke();
+        fontSize(10); textLetterSpacing(1.6f); textAlign(ALIGN_LEFT | ALIGN_TOP); fillColor(C_TEXT);
+        std::string up = title; for (char& ch : up) ch = (char)std::toupper((unsigned char)ch);
+        text(x + pad, y + pad + 1, up.c_str(), nullptr);
+        if (!value.empty()) { fontSize(10.5f); textLetterSpacing(0.4f); textAlign(ALIGN_RIGHT | ALIGN_TOP); fillColor(C_F1); text(x + w - pad, y + pad + 1, value.c_str(), nullptr); }
+        fontSize(11); textLetterSpacing(0.2f); textLineHeight(1.3f); textAlign(ALIGN_LEFT | ALIGN_TOP); fillColor(C_DIM);
+        textBox(x + pad, y + pad + 24, w - 2 * pad, body.c_str(), nullptr);
+        textLineHeight(1.f);
+    }
+
+    // ---- help window ---------------------------------------------------------------
+    static constexpr float HX = 120, HY = 70, HW = 760, HH = 500, TAB_W = 170, TAB_H = 34;
+    // hit ids: 0..pages-1 tabs, 100 tips toggle, 101 manual, 102 close, -1 inside, -2 outside
+    int helpHit(float x, float y) const {
+        if (x < HX || x > HX + HW || y < HY || y > HY + HH) return -2;
+        for (int i = 0; i < kNumHelpPages; ++i) if (x >= HX + 12 && x < HX + 12 + TAB_W && y >= HY + 56 + i * TAB_H && y < HY + 56 + (i + 1) * TAB_H) return i;
+        const float by = HY + HH - 44;
+        if (y >= by && y < by + 28) {
+            if (x >= HX + 12 && x < HX + 12 + TAB_W) return 100;
+            if (x >= HX + HW - 330 && x < HX + HW - 140) return 101;
+            if (x >= HX + HW - 124 && x < HX + HW - 16) return 102;
+        }
+        if (x >= HX + HW - 40 && y < HY + 40) return 102;
+        return -1;
+    }
+    void helpClick(float x, float y) {
+        const int h = helpHit(x, y);
+        if (h >= 0 && h < kNumHelpPages) helpPage = h;
+        else if (h == 100) gTipsOn = !gTipsOn;
+        else if (h == 101) openURL(kManualURL);
+        else if (h == 102 || h == -2) helpOpen = false;
+        repaint();
+    }
+    void drawHelp() {
+        beginPath(); rect(0, 0, W, H); fillColor(Color(0, 0, 0, 0.55f)); fill();
+        beginPath(); roundedRect(HX, HY, HW, HH, 10); fillColor(C_PANEL); fill(); strokeColor(C_LINE); strokeWidth(1); stroke();
+        fontSize(13); textLetterSpacing(4.f); textAlign(ALIGN_LEFT | ALIGN_MIDDLE); fillColor(C_TEXT); text(HX + 22, HY + 28, "BASALT HELP", nullptr);
+        // close cross
+        const float cx = HX + HW - 24, cy = HY + 26;
+        beginPath(); moveTo(cx - 6, cy - 6); lineTo(cx + 6, cy + 6); moveTo(cx + 6, cy - 6); lineTo(cx - 6, cy + 6); strokeColor(helpHover == 102 ? C_TEXT : C_DIM); strokeWidth(1.6f); stroke();
+        for (int i = 0; i < kNumHelpPages; ++i) {
+            const float ty = HY + 56 + i * TAB_H;
+            if (i == helpPage || i == helpHover) { beginPath(); roundedRect(HX + 12, ty + 2, TAB_W, TAB_H - 4, 5); fillColor(i == helpPage ? withAlpha(C_F1, 0.2f) : C_PANEL_HI); fill(); }
+            if (i == helpPage) { beginPath(); roundedRect(HX + 12, ty + 8, 3, TAB_H - 16, 1.5f); fillColor(C_F1); fill(); }
+            fontSize(11.5f); textLetterSpacing(0.6f); textAlign(ALIGN_LEFT | ALIGN_MIDDLE); fillColor(i == helpPage ? C_TEXT : C_DIM);
+            text(HX + 28, ty + TAB_H / 2 + 0.5f, kHelpPages[i].title, nullptr);
+        }
+        beginPath(); moveTo(HX + TAB_W + 26, HY + 56); lineTo(HX + TAB_W + 26, HY + HH - 56); strokeColor(C_LINE); strokeWidth(1); stroke();
+        const float bx = HX + TAB_W + 46, bw = HW - TAB_W - 70;
+        fontSize(15); textLetterSpacing(0.8f); textAlign(ALIGN_LEFT | ALIGN_TOP); fillColor(C_F1); text(bx, HY + 60, kHelpPages[helpPage].title, nullptr);
+        fontSize(12); textLetterSpacing(0.2f); textLineHeight(1.38f); fillColor(Color(0xc4, 0xc8, 0xcc));
+        textBox(bx, HY + 92, bw, kHelpPages[helpPage].body, nullptr);
+        textLineHeight(1.f);
+        // footer: tips toggle, manual, close
+        const float by = HY + HH - 44;
+        beginPath(); moveTo(HX + 12, by - 10); lineTo(HX + HW - 12, by - 10); strokeColor(C_LINE); stroke();
+        const float tw = 34, th = 18, tx = HX + 16, tyy = by + 14 - th / 2;
+        beginPath(); roundedRect(tx, tyy, tw, th, th / 2); fillColor(gTipsOn ? withAlpha(C_F1, 0.25f) : C_PANEL_HI); fill(); strokeColor(gTipsOn ? C_F1 : C_LINE); stroke();
+        beginPath(); circle(gTipsOn ? tx + tw - th / 2 : tx + th / 2, by + 14, 6); fillColor(gTipsOn ? C_F1 : C_DIM); fill();
+        fontSize(10); textLetterSpacing(1.6f); textAlign(ALIGN_LEFT | ALIGN_MIDDLE); fillColor(helpHover == 100 ? C_TEXT : C_DIM); text(tx + tw + 10, by + 14.5f, "HOVER TIPS", nullptr);
+        auto btn = [&](float x0, float w0, const char* label, bool hot, bool primary) {
+            beginPath(); roundedRect(x0, by, w0, 28, 5); fillColor(primary ? (hot ? withAlpha(C_F1, 0.35f) : withAlpha(C_F1, 0.18f)) : (hot ? C_PANEL_HI : C_PANEL)); fill();
+            strokeColor(primary ? C_F1 : C_LINE); strokeWidth(1); stroke();
+            fontSize(9.5f); textLetterSpacing(1.8f); textAlign(ALIGN_CENTER | ALIGN_MIDDLE); fillColor(C_TEXT); text(x0 + w0 / 2, by + 14.5f, label, nullptr);
+        };
+        btn(HX + HW - 330, 190, "FULL MANUAL (WEB)", helpHover == 101, false);
+        btn(HX + HW - 124, 108, "CLOSE", helpHover == 102, true);
     }
 
 private:
@@ -745,6 +881,8 @@ private:
     std::string curUser; std::vector<std::string> userPresets;
     bool menuOpen = false, saving = false, saveError = false; std::string saveName;
     bool learnMode = false, hoverClear = false; int learnWaiting = -1; float lastLearnEcho = 0;
+    int tipKey = -1, tipSuppressed = -2; double tipSince = 0; bool tipShown = false; float tipX = 0, tipY = 0;
+    bool helpOpen = false; int helpPage = 0, helpHover = -1;
     ResizeHandle resizeHandle;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BasaltUI)
