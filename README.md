@@ -2,6 +2,8 @@
 
 **A stereo dual filter for live use, for macOS, Windows and Linux (VST3 · AU · CLAP · VST2).**
 
+Part of **[Epsilon Audio](https://github.com/natehouk/epsilon-plugins)**, a family of free, open-source plugins: Monolith, Caldera, Obsidian, Strata and Basalt.
+
 ![Basalt](screenshot.png)
 
 Basalt is a clean-room design with the feature set of FabFilter Simplon, FabFilter's fifth plugin (October 2006), which was a simpler, CPU-light version of Volcano for live use. It was written from scratch, working only from FabFilter's public press release and product descriptions. No FabFilter code, binaries, presets, artwork or trademarks were used.
