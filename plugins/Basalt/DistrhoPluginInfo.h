@@ -3,7 +3,7 @@
 
 #define DISTRHO_PLUGIN_BRAND   "Epsilon Audio"
 #define DISTRHO_PLUGIN_NAME    "Basalt"
-#define DISTRHO_PLUGIN_URI     "https://epsilonrecords.com/plugins/basalt"
+#define DISTRHO_PLUGIN_URI     "https://plugins.epsilonrecords.com/basalt"
 #define DISTRHO_PLUGIN_CLAP_ID "com.epsilonrecords.basalt"
 
 #define DISTRHO_PLUGIN_BRAND_ID  EpsA
