@@ -249,7 +249,7 @@ protected:
         fontSize(22); textLetterSpacing(9); fillColor(C_TEXT); textAlign(ALIGN_LEFT | ALIGN_MIDDLE); text(52, 34, "BASALT", nullptr);
         fontSize(10); textLetterSpacing(2.5f); fillColor(C_DIM); text(206, 35, "DUAL FILTER", nullptr);
         fontSize(8); textLetterSpacing(2.f); textAlign(ALIGN_RIGHT | ALIGN_MIDDLE); fillColor(C_FAINT);
-        text(W - 20, 29, "EPSILON AUDIO", nullptr); text(W - 20, 41, "1.1", nullptr);
+        text(W - 20, 29, "EPSILON AUDIO", nullptr); text(W - 20, 41, "1.2", nullptr);
         drawPresetBar();
         drawHeaderButton(UNDO_X, UR_W, "UNDO", false, hoverHeader == 3, undoStack.empty());
         drawHeaderButton(REDO_X, UR_W, "REDO", false, hoverHeader == 4, redoStack.empty());

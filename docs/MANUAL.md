@@ -1,4 +1,4 @@
-# Basalt 1.1 — User Manual
+# Basalt 1.2 — User Manual
 
 Basalt is a stereo dual filter built for playing live: two multimode filters with three characters each, serial or parallel routing, a large display you can grab, big controls, Link, undo/redo and MIDI Learn. It runs as VST3, AU, CLAP and VST2 on macOS, Windows and Linux.
 
