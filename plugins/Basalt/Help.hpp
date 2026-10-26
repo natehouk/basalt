@@ -53,7 +53,7 @@ inline const char* targetTip(int t) {
     case kTipMidi: return paramTip(kMidiOn);
     case kTipHelp: return "Opens the help pages: what every control does, playing live, MIDI Learn and shortcuts.";
     case kTipPrev: return "Load the previous preset. The mouse wheel over the preset name also steps through presets.";
-    case kTipPresets: return "Open the preset browser: factory presets by category, your own presets, and Save Current As. A * after the name means you have changed it.";
+    case kTipPresets: return "Open the preset browser: factory presets by category, your own presets, and Save Current As. A * after the name means you have changed it. In the browser, type to search names and categories, and click a star to keep a preset in Favourites.";
     case kTipNext: return "Load the next preset.";
     case kTipHandle1: case kTipHandle2:
         return "Drag left/right to set the frequency and up/down to set the resonance. Cmd/Ctrl-drag moves the other filter the opposite way. With Link on, both filters move together.";

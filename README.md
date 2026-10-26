@@ -84,6 +84,7 @@ xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/*/Basalt*
 
   Assignments are saved with your project. The **MIDI** switch turns MIDI control off.
 - **31 factory presets** in five categories: Low Pass, High & Band, Dual, Resonant, and Live. Live has DJ-style starting points for sweeping.
+- The preset browser **searches** names and categories as you type, and a star keeps a preset in **Favourites**.
 - **Save your own presets** as small text files, which load the same on every OS:
   - macOS: `~/Library/Audio/Presets/Epsilon Audio/Basalt/`
   - Windows: `%APPDATA%\Epsilon Audio\Basalt\Presets\`
